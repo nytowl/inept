@@ -3,8 +3,9 @@
 
 from __future__ import with_statement
 
-# ineptepub.pyw, version 5.6
+# ineptepub.py, version 5.7
 # Copyright © 2009-2010 i♥cabbages
+# Copyright © 2016 Angus Ainslie <angus@akkea.ca>
 
 # Released under the terms of the GNU General Public Licence, version 3 or
 # later.  <http://www.gnu.org/licenses/>
@@ -30,6 +31,7 @@ from __future__ import with_statement
 #   5.4 - add support for encoding to 'utf-8' when building up list of files to decrypt from encryption.xml
 #   5.5 - On Windows try PyCrypto first, OpenSSL next
 #   5.6 - Modify interface to allow use with import
+#   5.7 - Don't exit on grabage filename
 """
 Decrypt Adobe ADEPT-encrypted EPUB books.
 """
@@ -47,6 +49,18 @@ import Tkinter
 import Tkconstants
 import tkFileDialog
 import tkMessageBox
+
+def _decodeFilename(self):
+    if self.flag_bits & 0x800:
+        try :
+          fname = self.filename.decode('utf-8')
+        except :
+          fname = self.filename
+        return fname
+    else:
+        return self.filename
+
+setattr( zipfile.ZipInfo, "_decodeFilename", _decodeFilename )
 
 class ADEPTError(Exception):
     pass
@@ -407,7 +421,6 @@ class DecryptionDialog(Tkinter.Frame):
             return
         self.status['text'] = 'File successfully decrypted'
 
-
 def decryptBook(keypath, inpath, outpath):
     with open(keypath, 'rb') as f:
         keyder = f.read()
@@ -434,8 +447,11 @@ def decryptBook(keypath, inpath, outpath):
             zi = ZipInfo('mimetype', compress_type=ZIP_STORED)
             outf.writestr(zi, inf.read('mimetype'))
             for path in namelist:
-                data = inf.read(path)
-                outf.writestr(path, decryptor.decrypt(path, data))
+                try :
+                  data = inf.read(path)
+                  outf.writestr(path, decryptor.decrypt(path, data))
+                except : 
+                  print "Bad path in file: ", path
     return 0
 
 
